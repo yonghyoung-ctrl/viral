@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vora Revenue Simulation — 1-Year Forecast</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fafafa;color:#1a1a1a;line-height:1.6}
+.wrap{max-width:760px;margin:0 auto;padding:2rem 1.5rem}
+h1{font-size:1.6rem;font-weight:600;color:#534AB7;margin-bottom:4px}
+.sub{font-size:0.85rem;color:#888;margin-bottom:1.5rem}
+h2{font-size:1.05rem;font-weight:600;margin:1.5rem 0 0.5rem;color:#1a1a1a}
+h3{font-size:0.95rem;font-weight:500;margin:1rem 0 0.4rem;color:#333}
+.controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:1.5rem}
+@media(max-width:600px){.controls{grid-template-columns:1fr 1fr}}
+.ctrl label{font-size:0.78rem;color:#666;display:block;margin-bottom:3px}
+.ctrl .row{display:flex;align-items:center;gap:8px}
+.ctrl input[type=range]{flex:1;height:6px;-webkit-appearance:none;appearance:none;background:#ddd;border-radius:3px;outline:none}
+.ctrl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#534AB7;cursor:pointer}
+.ctrl .val{font-size:0.85rem;font-weight:600;min-width:36px;text-align:right}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem}
+@media(max-width:600px){.metrics{grid-template-columns:repeat(2,1fr)}}
+.met{background:#f4f3f8;border-radius:8px;padding:0.7rem 0.9rem}
+.met .ml{font-size:0.72rem;color:#666;margin-bottom:2px}
+.met .mv{font-size:1.1rem;font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:6px;font-size:0.75rem;color:#666}
+.legend span{display:flex;align-items:center;gap:4px}
+.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.chart-wrap{position:relative;width:100%;margin-bottom:1.5rem}
+table{width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:1rem}
+th{background:#378ADD;color:#fff;padding:5px 8px;text-align:right;font-weight:500}
+th:first-child{text-align:center}
+td{padding:4px 8px;text-align:right;border-bottom:1px solid #e8e8e8}
+td:first-child{text-align:center;font-weight:500}
+tr:nth-child(even) td{background:#f6f9fe}
+.tool-tbl{margin-top:0.5rem}
+.tool-tbl table{font-size:0.75rem}
+.tool-tbl th{background:#534AB7;font-size:0.75rem;padding:4px 6px}
+.tool-tbl td{padding:3px 6px;font-size:0.75rem}
+.note{font-size:0.82rem;color:#555;line-height:1.7;margin-bottom:1rem;border-top:1px solid #eee;padding-top:12px}
+.footer{font-size:0.75rem;color:#aaa;border-top:1px solid #eee;padding-top:12px;margin-top:2rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Vora Revenue Simulation</h1>
+<p class="sub">40-tool paid model | 3-tier pricing ($3/$15/$25) | Top-up charging | 2026</p>
+
+<div class="controls">
+  <div class="ctrl">
+    <label>유료 전환율 (% of total signups)</label>
+    <div class="row">
+      <input type="range" min="1" max="20" value="5" step="0.5" id="payRate" />
+      <span class="val" id="payRateO">5.0%</span>
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>$3 플랜 비율 ($3 : $15 : $25 auto)</label>
+    <div class="row">
+      <input type="range" min="30" max="80" value="60" step="5" id="t1pct" />
+      <span class="val" id="t1pctO">60:30:10</span>
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>Top-up 추가 충전 비율</label>
+    <div class="row">
+      <input type="range" min="0" max="40" value="15" step="1" id="topup" />
+      <span class="val" id="topupO">15%</span>
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>1년 누적 가입자 (백만명)</label>
+    <div class="row">
+      <input type="range" min="1" max="300" value="150" step="1" id="totalU" />
+      <span class="val" id="totalUO">150M</span>
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>평균 Gross Margin</label>
+    <div class="row">
+      <input type="range" min="20" max="60" value="45" step="1" id="gm" />
+      <span class="val" id="gmO">45%</span>
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>유료 유저 월간 이탈률</label>
+    <div class="row">
+      <input type="range" min="2" max="20" value="8" step="1" id="churn" />
+      <span class="val" id="churnO">8%</span>
+    </div>
+  </div>
+</div>
+
+<div class="metrics" id="met"></div>
+
+<h3>Monthly revenue (MRR) & cumulative</h3>
+<div class="legend" id="leg1"></div>
+<div class="chart-wrap" style="height:260px"><canvas id="revChart"></canvas></div>
+
+<h3>Paying subscribers by tier</h3>
+<div class="legend" id="leg2"></div>
+<div class="chart-wrap" style="height:240px"><canvas id="userChart"></canvas></div>
+
+<h3>Revenue mix (12월 기준)</h3>
+<div class="legend" id="leg3"></div>
+<div class="chart-wrap" style="height:220px"><canvas id="pieChart"></canvas></div>
+
+<h2>Monthly breakdown</h2>
+<div id="tbl"></div>
+
+<h2>Tool pricing reference (유료 도구 40개)</h2>
+<div class="tool-tbl" id="toolRef"></div>
+
+<div class="note" id="bottom"></div>
+<div class="footer">Vora Revenue Simulation | Built for Horizon AI | 2026</div>
+
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let c1,c2,c3;
+
+const TOOLS=[
+{n:'text2image_2',c:'Generation',gm:50,u3:25,u15:127,u25:255},
+{n:'text2image_3',c:'Generation',gm:50,u3:25,u15:127,u25:255},
+{n:'image2image (x2)',c:'Generation',gm:50,u3:25,u15:127,u25:255},
+{n:'text2video',c:'Generation',gm:30,u3:3,u15:12,u25:20},
+{n:'image2video',c:'Generation',gm:30,u3:3,u15:12,u25:20},
+{n:'image editor',c:'Generation',gm:50,u3:25,u15:127,u25:255},
+{n:'bg remover',c:'Generation',gm:50,u3:25,u15:127,u25:255},
+{n:'face enhancer',c:'Generation',gm:50,u3:25,u15:127,u25:255},
+{n:'text2music',c:'Generation',gm:30,u3:6,u15:33,u25:56},
+{n:'lyrics2music',c:'Generation',gm:30,u3:6,u15:33,u25:56},
+{n:'face sticker',c:'Generation',gm:50,u3:25,u15:127,u25:255},
+{n:'text2sticker',c:'Generation',gm:50,u3:102,u15:510,u25:850},
+{n:'face swap',c:'Generation',gm:50,u3:25,u15:127,u25:255},
+{n:'TTS',c:'Generation',gm:50,u3:102,u15:510,u25:850},
+{n:'infographic',c:'Generation',gm:50,u3:25,u15:127,u25:255},
+{n:'multi-ref image',c:'Generation',gm:50,u3:25,u15:127,u25:255},
+{n:'chart (iframe)',c:'Generation',gm:50,u3:102,u15:510,u25:850},
+{n:'mindmap (iframe)',c:'Generation',gm:50,u3:102,u15:510,u25:850},
+{n:'GIF generator',c:'Generation',gm:30,u3:8,u15:42,u25:70},
+{n:'Meme generator',c:'Generation',gm:30,u3:50,u15:280,u25:450},
+{n:'Drama generator',c:'Generation',gm:30,u3:13,u15:65,u25:109},
+{n:'Voice cloning',c:'Generation',gm:30,u3:14,u15:70,u25:116},
+{n:'Mini story',c:'Generation',gm:30,u3:3,u15:15,u25:25},
+{n:'ppt2pdf',c:'Docs',gm:50,u3:204,u15:1020,u25:1700},
+{n:'url2pdf',c:'Docs',gm:50,u3:204,u15:1020,u25:1700},
+{n:'html2pdf',c:'Docs',gm:50,u3:204,u15:1020,u25:1700},
+{n:'pdf translator',c:'Docs',gm:50,u3:204,u15:1020,u25:1700},
+{n:'pdf summary',c:'Docs',gm:50,u3:204,u15:1020,u25:1700},
+{n:'ppt gen basic',c:'Docs',gm:50,u3:204,u15:1020,u25:1700},
+{n:'ppt gen advanced',c:'Docs',gm:50,u3:102,u15:510,u25:850},
+{n:'web crawler',c:'Utility',gm:50,u3:102,u15:510,u25:850},
+{n:'browser agent',c:'Utility',gm:50,u3:102,u15:510,u25:850},
+{n:'transcription',c:'Utility',gm:30,u3:3,u15:12,u25:20},
+{n:'video analyzer',c:'Utility',gm:30,u3:3,u15:12,u25:20},
+{n:'code interpreter',c:'Utility',gm:50,u3:30,u15:150,u25:250},
+{n:'background task',c:'Operation',gm:50,u3:25,u15:127,u25:255},
+{n:'SMS sending',c:'Operation',gm:50,u3:102,u15:510,u25:850},
+{n:'email sending',c:'Operation',gm:50,u3:102,u15:510,u25:850},
+{n:'email scheduler',c:'Operation',gm:50,u3:102,u15:510,u25:850},
+{n:'sms scheduler',c:'Operation',gm:50,u3:102,u15:510,u25:850},
+{n:'auto day work',c:'Operation',gm:50,u3:102,u15:510,u25:850},
+];
+
+const growthCurve=[0.02,0.05,0.08,0.11,0.15,0.19,0.25,0.32,0.42,0.56,0.75,1.0];
+
+function fmt(v){return v>=1e9?'$'+(v/1e9).toFixed(1)+'B':v>=1e6?'$'+(v/1e6).toFixed(1)+'M':v>=1e3?'$'+(v/1e3).toFixed(0)+'K':'$'+Math.round(v)}
+
+function run(){
+  const payR=+$('payRate').value/100;
+  const t1=+$('t1pct').value/100;
+  const t2r=Math.min((1-t1)*0.75,0.5);
+  const t3r=1-t1-t2r;
+  const topup=+$('topup').value/100;
+  const totalM=+$('totalU').value;
+  const totalUsers=totalM*1e6;
+  const gmAvg=+$('gm').value/100;
+  const churnR=+$('churn').value/100;
+
+  $('t1pctO').textContent=`${Math.round(t1*100)}:${Math.round(t2r*100)}:${Math.round(t3r*100)}`;
+
+  let mRev=[],mSub=[],mGP=[];
+  let mT1=[],mT2=[],mT3=[];
+  let cumRev=[];
+  let activePaying=0;
+  let totalRev=0,totalGP=0;
+  let prevCumUsers=0;
+
+  for(let m=0;m<12;m++){
+    let cumUsers=Math.round(totalUsers*growthCurve[m]);
+    let newUsers=cumUsers-prevCumUsers;
+    prevCumUsers=cumUsers;
+    let newPaying=Math.round(newUsers*payR);
+    activePaying=Math.round(activePaying*(1-churnR))+newPaying;
+    let p1=Math.round(activePaying*t1);
+    let p2=Math.round(activePaying*t2r);
+    let p3=activePaying-p1-p2;
+    let baseRev=p1*3+p2*15+p3*25;
+    let topupRev=Math.round(baseRev*topup);
+    let monthRev=baseRev+topupRev;
+    let gp=Math.round(monthRev*gmAvg);
+    totalRev+=monthRev;totalGP+=gp;
+    mRev.push(monthRev);mGP.push(gp);mSub.push(activePaying);
+    mT1.push(p1);mT2.push(p2);mT3.push(p3);cumRev.push(totalRev);
+  }
+
+  let arpu=mSub[11]>0?Math.round(mRev[11]/mSub[11]*100)/100:0;
+
+  $('met').innerHTML=[
+    {l:'1년 총 매출 (Revenue)',v:fmt(Math.round(totalRev))},
+    {l:'1년 총 매출이익 (GP)',v:fmt(Math.round(totalGP))},
+    {l:'12월 MRR',v:fmt(Math.round(mRev[11]))},
+    {l:'12월 유료 구독자',v:Math.round(mSub[11]/1e6*10)/10+'M (ARPU $'+arpu.toFixed(1)+')'},
+  ].map(x=>`<div class="met"><div class="ml">${x.l}</div><div class="mv">${x.v}</div></div>`).join('');
+
+  const mL=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+
+  $('leg1').innerHTML=`<span><i style="background:#534AB7"></i>MRR</span><span><i style="background:#1D9E75"></i>GP</span><span><i style="background:#D85A30;height:3px;border-radius:0"></i>누적 매출 (우축)</span>`;
+  $('leg2').innerHTML=`<span><i style="background:#534AB7"></i>$3</span><span><i style="background:#1D9E75"></i>$15</span><span><i style="background:#D85A30"></i>$25</span>`;
+  $('leg3').innerHTML=`<span><i style="background:#534AB7"></i>$3 매출</span><span><i style="background:#1D9E75"></i>$15 매출</span><span><i style="background:#D85A30"></i>$25 매출</span><span><i style="background:#BA7517"></i>Top-up</span>`;
+
+  const tt={callbacks:{label:item=>item.dataset.label+': '+fmt(Math.round(item.raw))}};
+
+  if(c1)c1.destroy();if(c2)c2.destroy();if(c3)c3.destroy();
+
+  c1=new Chart($('revChart'),{
+    data:{labels:mL,datasets:[
+      {type:'bar',label:'MRR',data:mRev,backgroundColor:'#534AB799',borderRadius:3,barPercentage:0.6,order:3},
+      {type:'bar',label:'GP',data:mGP,backgroundColor:'#1D9E7566',borderRadius:3,barPercentage:0.6,order:2},
+      {type:'line',label:'Cumulative',data:cumRev,borderColor:'#D85A30',borderWidth:2,pointRadius:3,pointBackgroundColor:'#D85A30',tension:0.3,fill:false,yAxisID:'y1',order:1}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:tt},
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:11},autoSkip:false}},
+        y:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{font:{size:10},callback:v=>fmt(v)},title:{display:true,text:'Monthly',font:{size:11}}},
+        y1:{position:'right',grid:{display:false},ticks:{font:{size:10},callback:v=>fmt(v)},title:{display:true,text:'Cumulative',font:{size:11}}}
+      }
+    }
+  });
+
+  c2=new Chart($('userChart'),{
+    type:'bar',data:{labels:mL,datasets:[
+      {label:'$3',data:mT1,backgroundColor:'#534AB799',borderRadius:2,barPercentage:0.7},
+      {label:'$15',data:mT2,backgroundColor:'#1D9E7599',borderRadius:2,barPercentage:0.7},
+      {label:'$25',data:mT3,backgroundColor:'#D85A3099',borderRadius:2,barPercentage:0.7},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:item=>item.dataset.label+': '+Math.round(item.raw/1e6*10)/10+'M'}}},
+      scales:{
+        x:{stacked:true,grid:{display:false},ticks:{font:{size:11},autoSkip:false}},
+        y:{stacked:true,grid:{color:'rgba(0,0,0,0.04)'},ticks:{font:{size:10},callback:v=>Math.round(v/1e6)+'M'},title:{display:true,text:'Subscribers',font:{size:11}}}
+      }
+    }
+  });
+
+  let lt1=mT1[11]*3,lt2=mT2[11]*15,lt3=mT3[11]*25;
+  let ltu=Math.round((lt1+lt2+lt3)*topup);
+  c3=new Chart($('pieChart'),{
+    type:'doughnut',data:{labels:['$3 plan','$15 plan','$25 plan','Top-up'],datasets:[{data:[lt1,lt2,lt3,ltu],backgroundColor:['#534AB7','#1D9E75','#D85A30','#BA7517'],borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:item=>{let t=lt1+lt2+lt3+ltu;return item.label+': '+fmt(item.raw)+' ('+Math.round(item.raw/t*100)+'%)';}}}},
+      cutout:'55%'
+    }
+  });
+
+  let tRows='';
+  for(let m=0;m<12;m++){
+    let cu=Math.round(totalUsers*growthCurve[m]);
+    tRows+=`<tr><td style="text-align:center">${m+1}월</td><td>${Math.round(cu/1e6)}M</td><td>${Math.round(mSub[m]/1e6*10)/10}M</td><td>${fmt(Math.round(mRev[m]))}</td><td>${fmt(Math.round(mGP[m]))}</td><td>${fmt(Math.round(cumRev[m]))}</td></tr>`;
+  }
+  $('tbl').innerHTML=`<table><thead><tr><th style="text-align:center">Month</th><th>Cumul users</th><th>Paid subs</th><th>MRR</th><th>GP</th><th>Cumul rev</th></tr></thead><tbody>${tRows}</tbody></table>`;
+
+  let catGroups={};
+  TOOLS.forEach(t=>{if(!catGroups[t.c])catGroups[t.c]=[];catGroups[t.c].push(t);});
+  let toolRows='';
+  for(let cat of ['Generation','Docs','Utility','Operation']){
+    let tools=catGroups[cat]||[];
+    tools.forEach((t,i)=>{
+      toolRows+=`<tr${i===0?` style="border-top:2px solid #ddd"`:''}><td style="text-align:left;${i===0?'font-weight:600':''}">${i===0?cat:''}</td><td style="text-align:left">${t.n}</td><td>${t.gm}%</td><td>${t.u3}</td><td>${t.u15}</td><td>${t.u25}</td></tr>`;
+    });
+  }
+  $('toolRef').innerHTML=`<table><thead><tr><th style="text-align:left">Category</th><th style="text-align:left">Tool</th><th>GM</th><th>$3 uses</th><th>$15 uses</th><th>$25 uses</th></tr></thead><tbody>${toolRows}</tbody></table>
+  <div style="font-size:0.72rem;color:#999;margin-top:4px;">+ 무료 도구 23개 (Search 23종, Knowledge Base 3종, Utility 1종, Amusement 1종)</div>`;
+
+  let krwTotal=Math.round(totalRev/1e6*1350);
+  let krwMRR=Math.round(mRev[11]/1e6*1350);
+  $('bottom').innerHTML=`<strong>매출 구조 요약</strong><br>
+    유료 도구 ${TOOLS.length}개 | 무료 도구 23개 | 3 tiers ($3/$15/$25) + Top-up<br>
+    유료 전환율 ${(payR*100).toFixed(1)}% x ${totalM}M 가입 = 12월 유료 ${Math.round(mSub[11]/1e6*10)/10}M명<br>
+    ARPU $${arpu.toFixed(1)}/mo | 12월 MRR ${fmt(Math.round(mRev[11]))} | 1년 총 매출 ${fmt(Math.round(totalRev))}<br>
+    <strong>원화 환산 (₩1,350/$):</strong> 1년 총 매출 약 <strong>₩${krwTotal.toLocaleString()}억</strong> | 12월 MRR 약 ₩${krwMRR.toLocaleString()}억`;
+}
+
+$('t1pct').addEventListener('input',()=>{
+  let t1=+$('t1pct').value/100;
+  let t2=Math.min((1-t1)*0.75,0.5);
+  let t3=1-t1-t2;
+  $('t1pctO').textContent=`${Math.round(t1*100)}:${Math.round(t2*100)}:${Math.round(t3*100)}`;
+  run();
+});
+
+['payRate','topup','totalU','gm','churn'].forEach(id=>{
+  $(id).addEventListener('input',()=>{
+    if(id==='payRate')$('payRateO').textContent=$(id).value+'%';
+    else if(id==='topup')$('topupO').textContent=$(id).value+'%';
+    else if(id==='totalU')$('totalUO').textContent=$(id).value+'M';
+    else if(id==='gm')$('gmO').textContent=$(id).value+'%';
+    else if(id==='churn')$('churnO').textContent=$(id).value+'%';
+    run();
+  });
+});
+
+run();
+</script>
+</body>
+</html>
