@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vora 1-Year Viral Spread Simulation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fafafa;color:#1a1a1a;line-height:1.6}
+.wrap{max-width:760px;margin:0 auto;padding:2rem 1.5rem}
+h1{font-size:1.6rem;font-weight:600;color:#534AB7;margin-bottom:4px}
+.sub{font-size:0.85rem;color:#888;margin-bottom:1.5rem}
+h2{font-size:1.05rem;font-weight:600;margin:1.5rem 0 0.5rem;color:#1a1a1a}
+h3{font-size:0.95rem;font-weight:500;margin:1rem 0 0.4rem;color:#333}
+.controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:1.5rem}
+@media(max-width:600px){.controls{grid-template-columns:1fr 1fr}}
+.ctrl label{font-size:0.78rem;color:#666;display:block;margin-bottom:3px}
+.ctrl .row{display:flex;align-items:center;gap:8px}
+.ctrl input[type=range]{flex:1;height:6px;-webkit-appearance:none;appearance:none;background:#ddd;border-radius:3px;outline:none}
+.ctrl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#534AB7;cursor:pointer}
+.ctrl .val{font-size:0.85rem;font-weight:600;min-width:36px;text-align:right}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem}
+@media(max-width:600px){.metrics{grid-template-columns:repeat(2,1fr)}}
+.met{background:#f4f3f8;border-radius:8px;padding:0.7rem 0.9rem}
+.met .ml{font-size:0.72rem;color:#666;margin-bottom:2px}
+.met .mv{font-size:1.1rem;font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:6px;font-size:0.75rem;color:#666}
+.legend span{display:flex;align-items:center;gap:4px}
+.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.chart-wrap{position:relative;width:100%;margin-bottom:1.5rem}
+table{width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:1rem}
+th{background:#378ADD;color:#fff;padding:5px 8px;text-align:right;font-weight:500}
+th:first-child{text-align:center}
+td{padding:4px 8px;text-align:right;border-bottom:1px solid #e8e8e8}
+td:first-child{text-align:center;font-weight:500}
+tr:nth-child(even) td{background:#f6f9fe}
+.wave-log{font-size:0.78rem;color:#555;margin-bottom:1rem}
+.wave-log .wd{color:#534AB7;font-weight:600}
+.analysis{font-size:0.85rem;color:#333;line-height:1.7;margin-bottom:1rem}
+.analysis b{color:#1a1a1a}
+.footer{font-size:0.75rem;color:#aaa;border-top:1px solid #eee;padding-top:12px;margin-top:2rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Vora 1-Year Viral Spread Simulation</h1>
+<p class="sub">5-invite cap model | Cohort wave analysis | 2026</p>
+
+<div class="controls">
+  <div class="ctrl">
+    <label>초대 전환율 (invite conversion)</label>
+    <div class="row">
+      <input type="range" min="5" max="60" value="40" step="1" id="conv" />
+      <span class="val" id="convO">40%</span>
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>전환자 평균 초대 수 (max 5)</label>
+    <div class="row">
+      <input type="range" min="1" max="5" value="3" step="0.5" id="avgI" />
+      <span class="val" id="avgIO">3.0</span>
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>학습 기간 (learning days)</label>
+    <div class="row">
+      <input type="range" min="2" max="14" value="5" step="1" id="learn" />
+      <span class="val" id="learnO">5일</span>
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>7일 잔존율 (7d retention)</label>
+    <div class="row">
+      <input type="range" min="20" max="90" value="60" step="5" id="ret" />
+      <span class="val" id="retO">60%</span>
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>초기 직원 수 (seed employees)</label>
+    <div class="row">
+      <input type="range" min="5" max="30" value="10" step="1" id="seed" />
+      <span class="val" id="seedO">10</span>
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>월간 외부 유입 (external/month)</label>
+    <div class="row">
+      <input type="range" min="0" max="500" value="0" step="10" id="extM" />
+      <span class="val" id="extMO">0명</span>
+    </div>
+  </div>
+</div>
+
+<div class="metrics" id="met"></div>
+
+<h3>Monthly new signups & cumulative</h3>
+<div class="legend" id="leg1"></div>
+<div class="chart-wrap" style="height:260px"><canvas id="mainChart"></canvas></div>
+
+<h3>Cumulative vs active vs churned (weekly)</h3>
+<div class="legend" id="leg2"></div>
+<div class="chart-wrap" style="height:260px"><canvas id="activeChart"></canvas></div>
+
+<h3>Daily new user pulse (wave pattern)</h3>
+<div class="legend" id="leg3"></div>
+<div class="chart-wrap" style="height:200px"><canvas id="waveChart"></canvas></div>
+
+<h2>Monthly breakdown</h2>
+<div id="monthTable"></div>
+
+<h2>Wave event log</h2>
+<div class="wave-log" id="waveLog"></div>
+
+<h2>Analysis</h2>
+<div class="analysis" id="analysis"></div>
+
+<div class="footer">Vora Viral Spread Simulation | Built for Horizon AI</div>
+
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let c1,c2,c3;
+const DAYS=365;
+
+function run(){
+const convR=+$('conv').value/100;
+const avgInv=+$('avgI').value;
+const learnD=+$('learn').value;
+const ret7=+$('ret').value/100;
+const seedN=+$('seed').value;
+const extMonth=+$('extM').value;
+const seedInv=5;
+const K=convR*avgInv;
+const dailyRet=Math.pow(ret7,1/7);
+
+let joins=[];
+joins.push({day:0,count:seedN,wave:0});
+joins.push({day:0,count:seedN*seedInv,wave:1});
+let pending=[{joinDay:0,count:seedN*seedInv,waveIdx:1}];
+let wIdx=2;
+while(pending.length>0&&wIdx<300){
+  let nxt=[];
+  for(let p of pending){
+    let ad=p.joinDay+learnD;
+    if(ad>=DAYS)continue;
+    let cv=Math.round(p.count*convR);
+    if(cv<1&&p.count*convR>0.3)cv=1;
+    if(cv<=0)continue;
+    let iv=Math.round(cv*avgInv);
+    if(iv<=0)continue;
+    joins.push({day:ad,count:iv,wave:wIdx});
+    nxt.push({joinDay:ad,count:iv,waveIdx:wIdx});
+    wIdx++;
+  }
+  pending=nxt;
+}
+
+if(extMonth>0){
+  let extD=extMonth/30;
+  for(let d=1;d<DAYS;d++){
+    let ext=Math.round(extD);
+    if(ext>0){
+      joins.push({day:d,count:ext,wave:-1});
+      if(d%learnD===0){
+        let ec=Math.round(ext*learnD*convR);
+        if(ec>0){let ei=Math.round(ec*avgInv);if(ei>0)joins.push({day:d+learnD,count:ei,wave:-2});}
+      }
+    }
+  }
+}
+
+let dailyNew=new Array(DAYS).fill(0);
+let dailyViral=new Array(DAYS).fill(0);
+let dailyExt=new Array(DAYS).fill(0);
+let cumul=new Array(DAYS).fill(0);
+let active=new Array(DAYS).fill(0);
+
+for(let j of joins){if(j.day>=0&&j.day<DAYS){dailyNew[j.day]+=j.count;if(j.wave>=0)dailyViral[j.day]+=j.count;else dailyExt[j.day]+=j.count;}}
+
+let tot=0;
+for(let d=0;d<DAYS;d++){
+  tot+=dailyNew[d];cumul[d]=tot;
+  let act=0;
+  for(let j of joins){if(j.day<=d&&j.day>=0&&j.day<DAYS){act+=j.count*Math.pow(dailyRet,d-j.day);}}
+  active[d]=Math.round(act);
+}
+let churned=cumul.map((c,i)=>c-active[i]);
+
+let mNew=new Array(12).fill(0),mViral=new Array(12).fill(0),mExt=new Array(12).fill(0),mCum=new Array(12).fill(0),mAct=new Array(12).fill(0);
+for(let d=0;d<DAYS;d++){let m=Math.min(Math.floor(d/30),11);mNew[m]+=dailyNew[d];mViral[m]+=dailyViral[d];mExt[m]+=dailyExt[d];}
+for(let m=0;m<12;m++){let ed=Math.min((m+1)*30-1,DAYS-1);mCum[m]=cumul[ed];mAct[m]=active[ed];}
+
+let d100='-',d500='-',d1k='-';
+for(let i=0;i<DAYS;i++){
+  if(cumul[i]>=100&&d100==='-')d100='D'+(i+1);
+  if(cumul[i]>=500&&d500==='-')d500='D'+(i+1);
+  if(cumul[i]>=1000&&d1k==='-')d1k='D'+(i+1);
+}
+
+$('met').innerHTML=[
+  {l:'1년 누적 가입',v:cumul[DAYS-1].toLocaleString()+'명'},
+  {l:'365일차 활성',v:active[DAYS-1].toLocaleString()+'명 ('+Math.round(active[DAYS-1]/Math.max(cumul[DAYS-1],1)*100)+'%)'},
+  {l:'바이럴 계수 K',v:K.toFixed(2)+(K>=1?' (자기확산)':' (감쇠)')},
+  {l:'1,000명 도달',v:d1k},
+].map(m=>`<div class="met"><div class="ml">${m.l}</div><div class="mv">${m.v}</div></div>`).join('');
+
+const mLabels=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+
+$('leg1').innerHTML=`<span><i style="background:#534AB7"></i>바이럴 신규</span><span><i style="background:#1D9E75"></i>외부 유입</span><span><i style="background:#D85A30;border-radius:0;height:3px"></i>누적 (우축)</span>`;
+$('leg2').innerHTML=`<span><i style="background:#378ADD"></i>누적 가입</span><span><i style="background:#1D9E75"></i>활성 사용자</span><span><i style="background:rgba(163,45,45,0.3)"></i>이탈</span>`;
+$('leg3').innerHTML=`<span><i style="background:rgba(83,74,183,0.5)"></i>일일 신규</span>`;
+
+const baseTooltip={callbacks:{title:items=>items[0].label,label:item=>item.dataset.label+': '+Math.round(item.raw).toLocaleString()+'명'}};
+
+if(c1)c1.destroy();if(c2)c2.destroy();if(c3)c3.destroy();
+
+c1=new Chart($('mainChart'),{
+  data:{labels:mLabels,datasets:[
+    {type:'bar',label:'바이럴 신규',data:mViral,backgroundColor:'#534AB799',borderRadius:3,barPercentage:0.7,order:2},
+    {type:'bar',label:'외부 유입',data:mExt,backgroundColor:'#1D9E7599',borderRadius:3,barPercentage:0.7,order:3},
+    {type:'line',label:'누적',data:mCum,borderColor:'#D85A30',borderWidth:2,pointRadius:3,pointBackgroundColor:'#D85A30',tension:0.3,fill:false,yAxisID:'y1',order:1}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:false},tooltip:baseTooltip},
+    scales:{
+      x:{stacked:true,grid:{display:false},ticks:{font:{size:11},autoSkip:false}},
+      y:{stacked:true,grid:{color:'rgba(0,0,0,0.04)'},ticks:{font:{size:10},callback:v=>Math.round(v)},title:{display:true,text:'월간 신규',font:{size:11}}},
+      y1:{position:'right',grid:{display:false},ticks:{font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(1)+'k':Math.round(v)},title:{display:true,text:'누적',font:{size:11}}}
+    }
+  }
+});
+
+let wkL=[],wkC=[],wkA=[],wkCh=[];
+for(let w=0;w<52;w++){let ed=Math.min((w+1)*7-1,DAYS-1);wkL.push('W'+(w+1));wkC.push(cumul[ed]);wkA.push(active[ed]);wkCh.push(churned[ed]);}
+
+c2=new Chart($('activeChart'),{
+  type:'line',data:{labels:wkL,datasets:[
+    {label:'누적 가입',data:wkC,borderColor:'#378ADD',backgroundColor:'rgba(55,138,221,0.06)',fill:true,pointRadius:0,borderWidth:2,tension:0.3},
+    {label:'활성 사용자',data:wkA,borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.06)',fill:true,pointRadius:0,borderWidth:2,tension:0.3},
+    {label:'이탈',data:wkCh,borderColor:'#A32D2D',backgroundColor:'rgba(163,45,45,0.06)',fill:true,pointRadius:0,borderWidth:1.5,borderDash:[4,3],tension:0.3}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:false},tooltip:baseTooltip},
+    scales:{
+      x:{grid:{display:false},ticks:{font:{size:10},maxRotation:0,callback:function(v,i){return i%4===0?wkL[i]:'';}}},
+      y:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(1)+'k':Math.round(v)},title:{display:true,text:'사용자 수',font:{size:11}}}
+    }
+  }
+});
+
+let dsL=Array.from({length:DAYS},(_,i)=>{if(i===0)return'D1';if((i+1)%30===0)return'D'+(i+1);return'';});
+c3=new Chart($('waveChart'),{
+  type:'bar',data:{labels:dsL,datasets:[{label:'일일 신규',data:dailyNew,backgroundColor:'rgba(83,74,183,0.5)',borderRadius:1,barPercentage:1,categoryPercentage:1}]},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>'Day '+(items[0].dataIndex+1),label:item=>Math.round(item.raw).toLocaleString()+'명'}}},
+    scales:{
+      x:{grid:{display:false},ticks:{font:{size:10},maxRotation:0}},
+      y:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{font:{size:10},callback:v=>Math.round(v)},title:{display:true,text:'일일 신규',font:{size:11}}}
+    }
+  }
+});
+
+let tRows='';
+for(let m=0;m<12;m++){
+  let rp=Math.round(mAct[m]/Math.max(mCum[m],1)*100);
+  tRows+=`<tr><td>M${m+1}</td><td>${mNew[m].toLocaleString()}</td><td>${mCum[m].toLocaleString()}</td><td>${mAct[m].toLocaleString()}</td><td>${rp}%</td></tr>`;
+}
+$('monthTable').innerHTML=`<table><thead><tr><th style="text-align:center">Month</th><th>New</th><th>Cumulative</th><th>Active</th><th>Retention</th></tr></thead><tbody>${tRows}</tbody></table>`;
+
+let viralJoins=joins.filter(j=>j.wave>=2);
+let wLog=[];
+wLog.push(`<span class="wd">D1:</span> 직원 ${seedN}명 + ${seedN*seedInv}명 1차 초대 = ${seedN+seedN*seedInv}명`);
+let pc=seedN*seedInv;
+let shown=0;
+for(let j of viralJoins){
+  let cv=Math.round(pc*convR);
+  wLog.push(`<span class="wd">D${j.day+1}:</span> W${j.wave-1} (${pc}명) 학습완료 → ${cv}명 전환 → ${j.count}명 초대 [W${j.wave}]`);
+  pc=j.count;shown++;
+  if(shown>=6)break;
+}
+if(viralJoins.length>6){
+  let last=viralJoins[viralJoins.length-1];
+  wLog.push(`<span style="color:#999">... (${viralJoins.length-6}개 파동 추가, 각 ~${learnD}일 간격) ...</span>`);
+  wLog.push(`<span class="wd">D${last.day+1}:</span> [W${last.wave}] 최종 파동 (${last.count}명)`);
+}
+wLog.push(`<span class="wd">D365:</span> 누적 ${cumul[DAYS-1].toLocaleString()} | 활성 ${active[DAYS-1].toLocaleString()} (${Math.round(active[DAYS-1]/Math.max(cumul[DAYS-1],1)*100)}%) | 이탈 ${churned[DAYS-1].toLocaleString()}`);
+$('waveLog').innerHTML=wLog.join('<br>');
+
+let viralTotal=0,extTotal=0;
+for(let m=0;m<12;m++){viralTotal+=mViral[m];extTotal+=mExt[m];}
+let viralPct=Math.round(viralTotal/Math.max(cumul[DAYS-1],1)*100);
+let totalWaves=viralJoins.length+2;
+
+let ka;
+if(K>=1)ka=`K=${K.toFixed(2)} (≥1): 자기확산 가능. 각 파동이 증폭됨.`;
+else if(K>=0.7)ka=`K=${K.toFixed(2)} (0.7~1): 서서히 감쇠하지만 외부 유입 결합 시 의미있는 성장 가능.`;
+else ka=`K=${K.toFixed(2)} (<0.7): 바이럴만으로는 빠르게 감쇠. 외부 채널 필수.`;
+
+$('analysis').innerHTML=`
+<p><b>바이럴 계수:</b> ${ka}</p>
+<p><b>파동 구조:</b> ${learnD}일 학습 기간마다 초대 파동 발생. 1년간 총 ${totalWaves}개 파동, ${K>=1?'증폭':'감쇠'} 패턴.</p>
+<p><b>잔존율:</b> 7일 잔존 ${Math.round(ret7*100)}% (일별 이탈 ${((1-dailyRet)*100).toFixed(1)}%). 365일차 활성/누적 비율: ${Math.round(active[DAYS-1]/Math.max(cumul[DAYS-1],1)*100)}%.</p>
+<p><b>5명 제한 효과:</b> 이론적 최대 K = 2.5 (50% 전환 × 5명). 쿠쿠박스 같은 무제한 모델 대비 속도는 느리지만, 초대 품질과 고객생애가치(LTV)가 높음.</p>
+<p><b>권장:</b> ${K>=1?'유기적 성장 가능. 잔존율 개선에 집중하여 복리 효과 극대화.':'바이럴 + 외부 유입(월 100~300명) 병행. 외부 유입자가 새 바이럴 파동을 생성하는 복합 성장 추구.'}</p>
+${extMonth>0?`<p><b>외부 유입 효과:</b> 월 ${extMonth}명이 바이럴 씨앗이 되어 2차 초대 파동 생성. 바이럴 비중 ${viralPct}%.</p>`:''}
+`;
+}
+
+['conv','avgI','learn','ret','seed','extM'].forEach(id=>{
+  $(id).addEventListener('input',()=>{
+    if(id==='conv')$('convO').textContent=$(id).value+'%';
+    else if(id==='avgI')$('avgIO').textContent=(+$(id).value).toFixed(1);
+    else if(id==='learn')$('learnO').textContent=$(id).value+'일';
+    else if(id==='ret')$('retO').textContent=$(id).value+'%';
+    else if(id==='seed')$('seedO').textContent=$(id).value;
+    else if(id==='extM')$('extMO').textContent=(+$(id).value).toLocaleString()+'명';
+    run();
+  });
+});
+
+run();
+</script>
+</body>
+</html>
