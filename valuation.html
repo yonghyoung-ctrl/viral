@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vora Valuation Analysis — Comparable Company Benchmarks</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fafafa;color:#1a1a1a;line-height:1.6}
+.wrap{max-width:760px;margin:0 auto;padding:2rem 1.5rem}
+h1{font-size:1.6rem;font-weight:600;color:#534AB7;margin-bottom:4px}
+.sub{font-size:0.85rem;color:#888;margin-bottom:1.5rem}
+h2{font-size:1.05rem;font-weight:600;margin:1.5rem 0 0.5rem;color:#1a1a1a}
+h3{font-size:0.95rem;font-weight:500;margin:1rem 0 0.4rem;color:#333}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:1.5rem}
+@media(max-width:600px){.controls{grid-template-columns:1fr}}
+.ctrl label{font-size:0.78rem;color:#666;display:block;margin-bottom:3px}
+.ctrl .row{display:flex;align-items:center;gap:8px}
+.ctrl input[type=range]{flex:1;height:6px;-webkit-appearance:none;appearance:none;background:#ddd;border-radius:3px;outline:none}
+.ctrl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#534AB7;cursor:pointer}
+.ctrl .val{font-size:0.85rem;font-weight:600;min-width:50px;text-align:right}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:1.5rem}
+@media(max-width:600px){.metrics{grid-template-columns:1fr 1fr}}
+.met{background:#f4f3f8;border-radius:8px;padding:0.7rem 0.9rem}
+.met .ml{font-size:0.72rem;color:#666;margin-bottom:2px}
+.met .mv{font-size:1.1rem;font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:6px;font-size:0.75rem;color:#666}
+.legend span{display:flex;align-items:center;gap:4px}
+.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.chart-wrap{position:relative;width:100%;margin-bottom:1.5rem}
+table{width:100%;border-collapse:collapse;font-size:0.82rem;margin-bottom:1rem}
+th{background:#534AB7;color:#fff;padding:5px 8px;font-weight:500}
+td{padding:5px 8px;border-bottom:1px solid #e8e8e8}
+tr:nth-child(even) td{background:#f8f7ff}
+.road{font-size:0.85rem;color:#555;line-height:1.9;margin-bottom:1rem}
+.road b{font-weight:600}
+.note{font-size:0.82rem;color:#555;line-height:1.7;margin-bottom:1rem;border-top:1px solid #eee;padding-top:12px}
+.footer{font-size:0.75rem;color:#aaa;border-top:1px solid #eee;padding-top:12px;margin-top:2rem}
+.vora-row{background:rgba(83,74,183,0.08) !important}
+.vora-row td{font-weight:600;color:#534AB7}
+.vora2-row{background:rgba(216,90,48,0.08) !important}
+.vora2-row td{font-weight:600;color:#D85A30}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Vora Valuation Analysis</h1>
+<p class="sub">Comparable company benchmarks | OpenAI, Perplexity, Genspark | KR+JP+US expansion | 2026</p>
+
+<div class="controls">
+  <div class="ctrl">
+    <label>Vora 1st year ARR ($M)</label>
+    <div class="row">
+      <input type="range" min="10" max="500" value="100" step="5" id="arr" />
+      <span class="val" id="arrO">$100M</span>
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>Revenue multiple (x ARR)</label>
+    <div class="row">
+      <input type="range" min="5" max="100" value="30" step="1" id="mult" />
+      <span class="val" id="multO">30x</span>
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>YoY growth rate (Year 2)</label>
+    <div class="row">
+      <input type="range" min="50" max="500" value="200" step="10" id="yoy" />
+      <span class="val" id="yoyO">200%</span>
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>US entity premium</label>
+    <div class="row">
+      <input type="range" min="100" max="200" value="130" step="5" id="usPrem" />
+      <span class="val" id="usPremO">1.3x</span>
+    </div>
+  </div>
+</div>
+
+<div class="metrics" id="met"></div>
+
+<h3>Valuation comparison (log scale)</h3>
+<div class="legend" id="leg1"></div>
+<div class="chart-wrap" style="height:300px"><canvas id="compChart"></canvas></div>
+
+<h3>Vora valuation scenarios by multiple</h3>
+<div class="legend" id="leg2"></div>
+<div class="chart-wrap" style="height:260px"><canvas id="scenChart"></canvas></div>
+
+<h2>Comparable company table</h2>
+<div id="compTable"></div>
+
+<h2>Growth roadmap</h2>
+<div class="road" id="roadmap"></div>
+
+<h2>Multiple benchmarks (2026 market data)</h2>
+<div id="benchTable"></div>
+
+<div class="note" id="bottom"></div>
+<div class="footer">Vora Valuation Analysis | Horizon AI | 2026<br>Sources: OpenAI ($852B, 2026.03), Perplexity ($21B, 2026.04), Genspark ($1.25B, 2025.11), SaaS multiples (Aventis, Qubit Capital)</div>
+
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let c1,c2;
+
+function fmtB(v){return v>=1000?(v/1000).toFixed(1)+'T':v>=1?v.toFixed(1)+'B':(v*1000).toFixed(0)+'M'}
+function fmt$(v){return v>=1e6?'$'+(v/1e6).toFixed(1)+'T':v>=1e3?'$'+(v/1e3).toFixed(1)+'B':'$'+Math.round(v)+'M'}
+
+const COMPS=[
+  {name:'OpenAI / ChatGPT',val:852,arr:25000,mult:34,users:'910M WAU',stage:'Pre-IPO',geo:'Global',note:'$122B raised, 9M+ business users'},
+  {name:'Perplexity AI',val:21,arr:500,mult:42,users:'100M+',stage:'Series E',geo:'Global',note:'AI search, 335% YoY growth'},
+  {name:'Genspark',val:1.25,arr:200,mult:6.3,users:'N/A',stage:'Series B',geo:'US/Global',note:'$545M total raised, AI workspace'},
+];
+
+function run(){
+  const arr=+$('arr').value;
+  const mult=+$('mult').value;
+  const yoy=+$('yoy').value/100;
+  const usPrem=+$('usPrem').value/100;
+
+  const voraVal=arr*mult*usPrem/1000;
+  const voraY2arr=Math.round(arr*(1+yoy));
+  const voraY2mult=Math.round(mult*0.85);
+  const voraY2val=voraY2arr*voraY2mult*usPrem/1000;
+
+  let krwY1=Math.round(voraVal*1.35*10)/10;
+  let krwY2=Math.round(voraY2val*1.35*10)/10;
+
+  $('met').innerHTML=[
+    {l:'Vora Y1 valuation',v:'$'+fmtB(voraVal)+' (\\u20A9'+krwY1.toFixed(1)+'\\uC870)'},
+    {l:'Vora Y2 projected',v:'$'+fmtB(voraY2val)+' (\\u20A9'+krwY2.toFixed(1)+'\\uC870)'},
+    {l:'Applied multiple',v:mult+'x ARR'+(usPrem>1?' + US '+Math.round((usPrem-1)*100)+'%':'')},
+  ].map(x=>`<div class="met"><div class="ml">${x.l}</div><div class="mv">${x.v}</div></div>`).join('');
+
+  $('leg1').innerHTML=`<span><i style="background:#888"></i>Valuation ($B)</span><span><i style="background:#534AB7"></i>Vora Y1</span><span><i style="background:#D85A30"></i>Vora Y2</span>`;
+
+  let allComps=[
+    ...COMPS.map(c=>({name:c.name,val:c.val,arr:c.arr,col:'#88878066'})),
+    {name:'Vora (Y1)',val:voraVal,arr:arr,col:'#534AB7cc'},
+    {name:'Vora (Y2)',val:voraY2val,arr:voraY2arr,col:'#D85A30cc'},
+  ];
+
+  if(c1)c1.destroy();
+  c1=new Chart($('compChart'),{
+    type:'bar',
+    data:{
+      labels:allComps.map(d=>d.name),
+      datasets:[
+        {label:'Valuation ($B)',data:allComps.map(d=>d.val),backgroundColor:allComps.map(d=>d.col),borderRadius:4,barPercentage:0.5,yAxisID:'y'},
+        {label:'ARR ($M)',data:allComps.map(d=>d.arr),backgroundColor:allComps.map(d=>d.col.replace('cc','44').replace('66','33')),borderRadius:4,barPercentage:0.5,yAxisID:'y1'},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:item=>{
+        if(item.datasetIndex===0)return 'Valuation: $'+item.raw.toFixed(1)+'B';
+        return 'ARR: $'+Math.round(item.raw)+'M';
+      }}}},
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:10}}},
+        y:{type:'logarithmic',position:'left',grid:{color:'rgba(0,0,0,0.04)'},ticks:{font:{size:10},callback:v=>v>=1000?(v/1000).toFixed(0)+'T':v.toFixed(1)+'B'},title:{display:true,text:'Valuation ($B, log)',font:{size:11}}},
+        y1:{type:'logarithmic',position:'right',grid:{display:false},ticks:{font:{size:10},callback:v=>v>=1000?Math.round(v/1000)+'B':'$'+v+'M'},title:{display:true,text:'ARR ($M, log)',font:{size:11}}}
+      }
+    }
+  });
+
+  let scenarios=[10,20,30,50,80,100];
+  let scenVals=scenarios.map(m=>arr*m*usPrem/1000);
+  let cols=['#1D9E7599','#378ADD99','#534AB799','#D85A3099','#D4537E99','#A32D2D99'];
+
+  $('leg2').innerHTML=scenarios.map((m,i)=>`<span><i style="background:${cols[i]}"></i>${m}x</span>`).join('');
+
+  if(c2)c2.destroy();
+  c2=new Chart($('scenChart'),{
+    type:'bar',
+    data:{labels:scenarios.map(m=>m+'x ARR'),datasets:[{data:scenVals,backgroundColor:cols,borderRadius:4,barPercentage:0.6}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:item=>'$'+fmtB(item.raw)}}},
+      scales:{
+        x:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{font:{size:10},callback:v=>'$'+fmtB(v)}},
+        y:{grid:{display:false},ticks:{font:{size:11}}}
+      }
+    }
+  });
+
+  let rows=COMPS.map(c=>`<tr>
+    <td style="text-align:left;font-weight:500;">${c.name}</td>
+    <td style="text-align:right;">$${c.val>=1000?(c.val/1000).toFixed(0)+'T':c.val+'B'}</td>
+    <td style="text-align:right;">$${c.arr>=1000?(c.arr/1000).toFixed(0)+'B':c.arr+'M'}</td>
+    <td style="text-align:right;">${c.mult}x</td>
+    <td style="text-align:left;">${c.stage}</td>
+    <td style="text-align:left;">${c.geo}</td>
+    <td style="text-align:left;font-size:0.75rem;color:#888;">${c.note}</td>
+  </tr>`).join('');
+  rows+=`<tr class="vora-row"><td style="text-align:left;">Vora (Y1)</td><td style="text-align:right;">$${fmtB(voraVal)}</td><td style="text-align:right;">$${arr}M</td><td style="text-align:right;">${mult}x</td><td style="text-align:left;">Series A/B</td><td style="text-align:left;">KR+JP+EN</td><td style="text-align:left;font-size:0.75rem;">70+ AI tools, 5-invite viral</td></tr>`;
+  rows+=`<tr class="vora2-row"><td style="text-align:left;">Vora (Y2)</td><td style="text-align:right;">$${fmtB(voraY2val)}</td><td style="text-align:right;">$${voraY2arr}M</td><td style="text-align:right;">${voraY2mult}x</td><td style="text-align:left;">Series B/C</td><td style="text-align:left;">+US entity</td><td style="text-align:left;font-size:0.75rem;">US expansion, ${Math.round(yoy*100)}% YoY</td></tr>`;
+
+  $('compTable').innerHTML=`<div style="overflow-x:auto;"><table>
+    <thead><tr><th style="text-align:left">Company</th><th style="text-align:right">Valuation</th><th style="text-align:right">ARR</th><th style="text-align:right">Multiple</th><th style="text-align:left">Stage</th><th style="text-align:left">Geo</th><th style="text-align:left">Note</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+
+  $('roadmap').innerHTML=`
+    <b style="color:#534AB7;">Y1 H1 (Month 1-6):</b> KR launch + JP beta. Seed/Pre-A funding. Initial traction, viral loop validation.<br>
+    <b style="color:#534AB7;">Y1 H2 (Month 7-12):</b> KR/JP full growth + EN service open. Series A at $${fmtB(voraVal)} target. ARR $${arr}M.<br>
+    <b style="color:#D85A30;">Y2 H1 (Month 13-18):</b> US entity incorporation (Delaware C-Corp). US team hiring. Legal/cultural localization.<br>
+    <b style="color:#D85A30;">Y2 H2 (Month 19-24):</b> Global expansion. Series B/C at $${fmtB(voraY2val)}. ARR $${voraY2arr}M. US VC access unlocked.<br>
+    <b style="color:#888;">Y3+:</b> Pre-IPO / Late stage. NASDAQ listing preparation. Target $${fmtB(voraY2val*2.5)}+ valuation.`;
+
+  $('benchTable').innerHTML=`<table>
+    <thead><tr><th style="text-align:left">Category</th><th style="text-align:right">Multiple range</th><th style="text-align:left">Examples</th></tr></thead>
+    <tbody>
+    <tr><td style="text-align:left">General SaaS (private)</td><td style="text-align:right;">3x - 7x ARR</td><td style="text-align:left;">Median ~4.5x</td></tr>
+    <tr><td style="text-align:left">AI-native SaaS premium</td><td style="text-align:right;">+1x - 3x over peers</td><td style="text-align:left;">Proprietary models, data moats</td></tr>
+    <tr><td style="text-align:left">Early-stage AI (Seed/A)</td><td style="text-align:right;">10x - 25x ARR</td><td style="text-align:left;">Pre-product-market fit</td></tr>
+    <tr><td style="text-align:left">High-growth AI (B/C)</td><td style="text-align:right;">30x - 50x ARR</td><td style="text-align:left;">Genspark (~6x), proven traction</td></tr>
+    <tr><td style="text-align:left">Hyper-growth AI</td><td style="text-align:right;">80x - 100x ARR</td><td style="text-align:left;">Perplexity (~42x), OpenAI (~34x)</td></tr>
+    <tr><td style="text-align:left">US entity premium</td><td style="text-align:right;">+20% - 50%</td><td style="text-align:left;">VC access, NASDAQ exit path</td></tr>
+    </tbody></table>`;
+
+  $('bottom').innerHTML=`<strong>Valuation rationale</strong><br>
+    2026 AI SaaS multiples: early 10-25x, high-growth 30-50x, hyper-growth 80-100x (source: Qubit Capital, Aventis Advisors)<br>
+    US entity premium ${Math.round((usPrem-1)*100)}%: Delaware C-Corp unlocks US VC ecosystem, NASDAQ IPO path, higher multiples vs Korea-only entity<br>
+    <strong>Vora Y1: ARR $${arr}M x ${mult}x x ${usPrem.toFixed(1)} = $${fmtB(voraVal)} (approx. \\u20A9${krwY1.toFixed(1)} trillion)</strong><br>
+    <strong>Vora Y2: ARR $${voraY2arr}M x ${voraY2mult}x x ${usPrem.toFixed(1)} = $${fmtB(voraY2val)} (approx. \\u20A9${krwY2.toFixed(1)} trillion)</strong>`;
+}
+
+['arr','mult','yoy','usPrem'].forEach(id=>{
+  $(id).addEventListener('input',()=>{
+    if(id==='arr')$('arrO').textContent='$'+$(id).value+'M';
+    else if(id==='mult')$('multO').textContent=$(id).value+'x';
+    else if(id==='yoy')$('yoyO').textContent=$(id).value+'%';
+    else if(id==='usPrem')$('usPremO').textContent=(+$(id).value/100).toFixed(1)+'x';
+    run();
+  });
+});
+
+run();
+</script>
+</body>
+</html>
